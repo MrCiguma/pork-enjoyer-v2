@@ -1,0 +1,321 @@
+<h1>Pork enjoyer tool</h1>
+<a href="https://www.youtube.com/watch?v=BUdyHsmOQfc&ab_channel=JohnSmith"
+  >How to use</a
+>
+<div>If you find a bug you can contact me on discord (mrciguma)</div>
+
+<div>
+  Server URL here. Needs to be exactly the same format as the default (/ at the
+  end, with https..)
+</div>
+<input
+  [value]="this.baseUrl"
+  (keyup)="this.baseUrl = getValue($event)"
+  style="width: 400px"
+/>
+<div>X coordinate here</div>
+<input [value]="this.x" (keyup)="this.x = getIntValue($event)" />
+<div>Y coordinate here</div>
+<input [value]="this.y" (keyup)="this.y = getIntValue($event)" />
+<div>enter units upgrade lvl here</div>
+<input [value]="this.unitsLvl" (keyup)="this.unitsLvl = getIntValue($event)" />
+<div>min units</div>
+<input [value]="this.minUnits" (keyup)="this.minUnits = getIntValue($event)" />
+<div>max units</div>
+<input [value]="this.maxUnits" (keyup)="this.maxUnits = getIntValue($event)" />
+<div>game speed</div>
+<input
+  [value]="this.gameSpeed"
+  (keyup)="this.gameSpeed = getIntValue($event)"
+/>
+<div>max loss percentage</div>
+<input (keyup)="this.maxLoss = getIntValue($event) / 100.0" />
+<p>
+  Enter Oasis data here. Click calculate twice if it doesn't work first time
+</p>
+<input #oases />
+
+<button type="button" (click)="calc(oases.value)">Calculate</button>
+<button type="button" (click)="oases.value = ''">Clear</button>
+
+<p></p>
+<button type="button" (click)="this.showHero = !this.showHero">
+  Show/hide hero section
+</button>
+<div *ngIf="this.showHero">
+  <div>Fighting strength</div>
+  <input
+    [value]="this.fightingStrength"
+    (keyup)="this.fightingStrength = getIntValue($event)"
+  />
+  <div>Damage reduction</div>
+  <input
+    [value]="this.damageReduction"
+    (keyup)="this.damageReduction = getIntValue($event)"
+  />
+</div>
+
+<p>You can customize unit data below. Default is a steppe rider</p>
+<button type="button" (click)="this.show = !this.show">
+  Show/hide custom fields
+</button>
+<div *ngIf="this.show">
+  <div>
+    calculated strength of a single unit. this will override the values below
+  </div>
+  <input
+    [value]="this.unitCalculatedPower"
+    (keyup)="this.unitCalculatedPower = getFloatValue($event)"
+  />
+  <div>base power</div>
+  <input
+    type="text"
+    name="basePower"
+    [value]="this.basePower"
+    (keyup)="this.basePower = getIntValue($event)"
+  />
+  <div>crop consumption</div>
+  <input
+    [value]="this.consumption"
+    (keyup)="this.consumption = getIntValue($event)"
+  />
+  <div>unit cost</div>
+  <input
+    [value]="this.unitCost"
+    (keyup)="this.unitCost = getIntValue($event)"
+  />
+  <div>unit ID</div>
+  <input [value]="this.unitId" (keyup)="this.unitId = getIntValue($event)" />
+  <div>raid capacity</div>
+  <input
+    [value]="this.capacity"
+    name="capacity"
+    (keyup)="this.capacity = getIntValue($event)"
+  />
+  <div>is cavalry</div>
+  <input
+    name="cavalry"
+    type="checkbox"
+    (onclick)="this.handleClick(this)"
+    [value]="this.cavalry"
+    [checked]="this.cavalry"
+  />
+  <div>delete on click</div>
+  <input
+    name="deleteOnClick"
+    type="checkbox"
+    [checked]="this.deleteOnClick"
+    (click)="this.deleteOnClick = !this.deleteOnClick"
+    [value]="this.deleteOnClick"
+  />
+  <div>minimum delay (hours)</div>
+  <input
+    type="text"
+    [value]="this.minDelay"
+    (keyup)="this.minDelay = getIntValue($event)"
+  />
+</div>
+
+<div>Current share link is</div>
+<div>{{ this.shareLink() }}</div>
+<div
+  style="
+    position: sticky;
+    top: 0;
+    padding: 5px;
+    width: 400px;
+    background-color: #cae8ca;
+    border: 2px solid #4caf50;
+  "
+>
+  You have clicked on links totaling {{ this.totalClicked }} units
+</div>
+
+<table
+  mat-table
+  [dataSource]="this.dataSource"
+  matSort
+  matSortActive="value"
+  class="mat-elevation-z8"
+>
+  <!-- Value Column -->
+  <ng-container matColumnDef="value">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      Value
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.value }}</td>
+  </ng-container>
+
+  <!-- Value Column -->
+  <ng-container matColumnDef="valueAnimals">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      Value just from animals
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.valueAnimals }}</td>
+  </ng-container>
+
+  <!-- totalRes Column -->
+  <ng-container matColumnDef="totalRes">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      total res
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.totalRes }}</td>
+  </ng-container>
+
+  <!-- distance Column -->
+  <ng-container matColumnDef="distance">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      distance
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.distance }}</td>
+  </ng-container>
+
+  <!-- animals Column -->
+  <ng-container matColumnDef="animals">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      animals
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.animals }}</td>
+  </ng-container>
+
+  <!-- resInOasis Column -->
+  <ng-container matColumnDef="resInOasis">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      res in oasis
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.resInOasis }}</td>
+  </ng-container>
+
+  <!-- link Column -->
+  <ng-container matColumnDef="link">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      link
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <a [href]="element.link">link</a>
+    </td>
+  </ng-container>
+
+  <!-- marksNeeded Column -->
+  <ng-container matColumnDef="heroXpTime">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      Hero xp/time
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <a [href]="element.heroLink">{{ element.heroXpTime.toFixed(2) }}</a>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="heroXpDamage">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      Hero xp:damage
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <a [href]="element.heroLink"
+        >{{ element.heroXp }} : {{ element.heroDamage.toFixed(2) }} ({{
+          element.heroXpDamage.toFixed(2)
+        }})</a
+      >
+    </td>
+  </ng-container>
+
+  <!-- unitsNeeded Column -->
+  <ng-container matColumnDef="unitsNeeded">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      units needed
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <a [href]="element.unitsLink">{{ element.unitsNeeded }}</a>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="suggestedSim">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      suggested units number
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <a
+        [href]="element.suggestedSim.link"
+        (click)="
+          this.addToTotalAndDelete(element.suggestedSim.number, element.link)
+        "
+        >{{ element.suggestedSim.number }},
+        {{ (element.suggestedSim.percent * 100).toFixed(0) }}%</a
+      >
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="cleanAnimals">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      cleaning links
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <div *ngFor="let cleanLink of element.cleanAnimals; index as i">
+        <a [href]="cleanLink">{{ i + 1 }} </a>
+      </div>
+    </td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+</table>
