@@ -1,5 +1,5 @@
-import { ActivatedRoute, RouterOutlet } from '@angular/router';
-import { CommonModule, formatDate } from '@angular/common';
+import { ActivatedRoute, RouterOutlet } from "@angular/router";
+import { CommonModule, formatDate } from "@angular/common";
 import {
   Map,
   Position,
@@ -9,26 +9,27 @@ import {
   AnimalData,
   OasisType,
   Sim,
-} from './app.model';
-import { HttpClient, HttpClientModule, HttpParams } from '@angular/common/http';
-import '@angular/compiler';
+} from "./app.model";
+import { HttpClient, HttpClientModule, HttpParams } from "@angular/common/http";
+import "@angular/compiler";
 import {
   Component,
   enableProdMode,
   importProvidersFrom,
   NgModule,
   ViewChild,
-} from '@angular/core';
-import { MatSort, Sort, MatSortModule } from '@angular/material/sort';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { FormsModule } from '@angular/forms';
+} from "@angular/core";
+import { MatSort, Sort, MatSortModule } from "@angular/material/sort";
+import { MatTableDataSource, MatTableModule } from "@angular/material/table";
+import { FormsModule } from "@angular/forms";
 import {
   BrowserAnimationsModule,
   provideAnimations,
-} from '@angular/platform-browser/animations';
+} from "@angular/platform-browser/animations";
+import { Title } from "@angular/platform-browser";
 
 @Component({
-  selector: 'app-root',
+  selector: "app-root",
   standalone: true,
   imports: [
     RouterOutlet,
@@ -38,78 +39,102 @@ import {
     MatSortModule,
     FormsModule,
   ],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css',
+  templateUrl: "./app.component.html",
+  styleUrl: "./app.component.css",
 })
 export class AppComponent {
   x: number = 0;
   y: number = 0;
-  baseUrl: string = 'https://ts9.x1.international.travian.com/';
+  baseUrl: string = "https://ts9.x1.international.travian.com/";
   unitsLvl: number = 0;
   basePower: number = 120;
   unitCost: number = 895;
+  unitCost2: number = 895;
   minUnits: number = 0;
+  minUnits2: number = 0;
   maxUnits: number = 10000;
+  maxUnits2: number = 10000;
   maxLoss: number = 1;
+  maxLoss2: number = 1;
   show: boolean = false;
   consumption: number = 2;
   cavalry: boolean = true;
+  cavalry2: boolean = true;
   capacity: number = 75;
-  unitId: number = 4;
+  capacity2: number = 75;
+  unitId: number[] = [4];
+  unitId2: number[] = [4];
   gameSpeed: number = 1;
   showHero: boolean = false;
   fightingStrength: number = 0;
   damageReduction: number = 0;
   minDelay: number = 0;
+  unitCalculatedPower: number = 0;
+  unitCalculatedPower2: number = 0;
+  deleteOnClick: boolean = false;
+  valueTime: boolean = true;
+  valueRaid: boolean = true;
+  tabName: string = "PorkEnjoyer";
 
   parameterList: String[] = [
-    'x',
-    'y',
-    'baseUrl',
-    'unitsLvl',
-    'basePower',
-    'unitCost',
-    'minUnits',
-    'maxUnits',
-    'maxLoss',
-    'show',
-    'consumption',
-    'cavalry',
-    'capacity',
-    'unitId',
-    'gameSpeed',
-    'showHero',
-    'fightingStrength',
-    'damageReduction',
-    'unitCalculatedPower',
-    'deleteOnClick',
-    'minDelay',
+    "x",
+    "y",
+    "baseUrl",
+    "unitCost",
+    "minUnits",
+    "maxUnits",
+    "cavalry",
+    "unitId",
+    "unitCalculatedPower",
+    "capacity",
+    "unitCost2",
+    "minUnits2",
+    "maxUnits2",
+    "cavalry2",
+    "unitId2",
+    "unitCalculatedPower2",
+    "capacity2",
+    "maxLoss",
+    "maxLoss2",
+    "show",
+    "gameSpeed",
+    "showHero",
+    "fightingStrength",
+    "damageReduction",
+    "deleteOnClick",
+    "minDelay",
+    "valueTime",
+    "valueRaid",
+    "tabName",
   ];
-  unitCalculatedPower: number = 0;
-  deleteOnClick: boolean = false;
 
   announceSortChange($event: Sort) {
     console.log($event);
   }
-  title = 'porkEnjoyer';
-  hits = '';
+  hits = "";
   oases: Oasis[] = [];
   data: AnimalData[] = [];
   totalClicked = 0;
+  totalSuggested = 0;
+  totalRaid = 0;
+  totalAnimals = 0;
+  totalLoss = 0;
 
   displayedColumns: string[] = [
-    'value',
-    'valueAnimals',
-    'totalRes',
-    'distance',
-    'animals',
-    'resInOasis',
-    'link',
-    'unitsNeeded',
-    'suggestedSim',
-    'cleanAnimals',
-    'heroXpDamage',
-    'heroXpTime',
+    "value",
+    "value2",
+    "valueAnimals",
+    "totalRes",
+    "distance",
+    "animals",
+    "resInOasis",
+    "link",
+    "unitsNeeded",
+    "suggestedSim",
+    "suggestedSim2",
+    "cleanAnimals",
+    "heroXpDamage",
+    "heroXpTime",
   ];
 
   dataSource: any;
@@ -120,9 +145,11 @@ export class AppComponent {
   ngAfterViewInit() {}
 
   private httpClient: HttpClient;
+  private title: Title;
 
-  constructor(http: HttpClient) {
+  constructor(http: HttpClient, private titleService: Title) {
     this.httpClient = http;
+    this.title = titleService;
     this.readData();
   }
 
@@ -131,37 +158,45 @@ export class AppComponent {
       let queryParam = this.getParamValueQueryString(key.toString());
       if (queryParam) {
         // @ts-ignore
-        if (typeof this[key.toString()] == 'number') {
+        if (typeof this[key.toString()] == "number") {
           // @ts-ignore
           this[key as keyof AppComponent] = parseFloat(queryParam);
           return;
         }
         // @ts-ignore
-        if (typeof this[key.toString()] == 'boolean') {
+        if (typeof this[key.toString()] == "boolean") {
           // @ts-ignore
           this[key as keyof AppComponent] = JSON.parse(queryParam);
+          return;
+        }
+        // @ts-ignore
+        if (typeof this[key.toString()] == "object") {
+          console.log(key.toString());
+          // @ts-ignore
+          this[key as keyof AppComponent] = queryParam.split(",").map(Number);
           return;
         }
         // @ts-ignore
         this[key as keyof AppComponent] = queryParam;
       }
     });
+
+    console.log(this.tabName);
+    this.title.setTitle(this.tabName);
   }
 
-  getParamValueQueryString(
-    paramName: string
-  ): boolean | string | number | null | undefined {
+  getParamValueQueryString(paramName: string): string | null | undefined {
     const url = window.location.href;
     let paramValue;
-    if (url.includes('?')) {
-      const httpParams = new HttpParams({ fromString: url.split('?')[1] });
+    if (url.includes("?")) {
+      const httpParams = new HttpParams({ fromString: url.split("?")[1] });
       paramValue = httpParams.get(paramName);
     }
     return paramValue;
   }
 
   printCurrentParams() {
-    let result = '?';
+    let result = "?";
     this.parameterList.forEach((param) => {
       result += `${param}=${this[param as keyof AppComponent]}&`;
     });
@@ -169,7 +204,7 @@ export class AppComponent {
   }
 
   calc(map: string) {
-    console.log('start' + new Date().toISOString());
+    console.log("start" + new Date().toISOString());
     this.printCurrentParams();
     let obj: Map = JSON.parse(map);
 
@@ -180,13 +215,13 @@ export class AppComponent {
       }
     });
 
-    this.hits = 'ww';
+    this.hits = "ww";
     this.rawData = [...this.rawData, ...this.oasesToGrid()];
     this.dataSource = new MatTableDataSource(this.rawData);
     this.dataSource.sort = this.sort;
     console.log(this.oases.length);
     console.log(this.rawData.length);
-    console.log('end' + new Date().toISOString());
+    console.log("end" + new Date().toISOString());
   }
 
   oasesToGrid(): any[] {
@@ -199,10 +234,12 @@ export class AppComponent {
       totalRes: number;
       distance: number;
       value: number;
+      value2: number;
       link: string;
       unitsLink: string;
       heroLink: string;
       suggestedSim: Sim;
+      suggestedSim2: Sim;
       suggestedRainbow: Sim;
       cleanAnimals: string[];
     }[] = [];
@@ -218,14 +255,22 @@ export class AppComponent {
         totalRes: Math.round(o.currentRes + this.animalToRes(o.animals, 1)),
         distance: Math.round(this.calcDistance(o.position)),
         value: 0,
+        value2: 0,
         valueAnimals: 0,
         link: this.getLink(o.position),
-        unitsLink: '',
-        heroLink: '',
-        suggestedSim: this.getSuggested(
+        unitsLink: "",
+        heroLink: "",
+        suggestedSim: this.getSuggestedByProfile(
           o.animals,
           Math.round(o.currentRes / this.capacity),
-          mapId
+          mapId,
+          1
+        ),
+        suggestedSim2: this.getSuggestedByProfile(
+          o.animals,
+          Math.round(o.currentRes / this.capacity2),
+          mapId,
+          2
         ),
         suggestedRainbow: this.getSuggestedRainbow(
           o.animals,
@@ -239,26 +284,41 @@ export class AppComponent {
       };
 
       row.value =
-        (row.resInOasis + row.suggestedSim.bounty - row.suggestedSim.losses) /
-        (row.suggestedSim.number * row.distance);
+        (row.resInOasis * (this.valueRaid ? 1 : 0) +
+          row.suggestedSim.bounty -
+          row.suggestedSim.losses) /
+        row.suggestedSim.number;
+
+      row.value2 =
+        (row.resInOasis * (this.valueRaid ? 1 : 0) +
+          row.suggestedSim2.bounty -
+          row.suggestedSim2.losses) /
+        row.suggestedSim2.number;
+
+      if (this.valueTime) {
+        row.value /= row.distance;
+        row.value2 /= row.distance;
+      }
+
       row.value = Math.round(row.value * 1000);
+      row.value2 = Math.round(row.value2 * 1000);
+
+      if (!row.value) row.value = 0;
+      if (!row.value2) row.value2 = 0;
 
       row.valueAnimals =
         (row.suggestedSim.bounty - row.suggestedSim.losses) /
-        (row.suggestedSim.number * row.distance);
+        row.suggestedSim.number;
+      row.valueAnimals /= row.distance;
       row.valueAnimals = Math.round(row.valueAnimals * 1000);
 
-      row.unitsLink = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}&troop[t${this.unitId}]=${row.unitsNeeded}`;
+      const troopParams = this.unitId
+        .map((id) => `&troop[t${id}]=${row.unitsNeeded}`)
+        .join("");
+      row.unitsLink = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}${troopParams}`;
       row.heroLink = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}&troop[t11]=1`;
 
       row.suggestedRainbow.link = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}&troop[t4]=${row.suggestedRainbow.number}&troop[t5]=${row.suggestedRainbow.number}&troop[t6]=${row.suggestedRainbow.number}`;
-
-      row.cleanAnimals = this.cleanAnimals(
-        o.animals,
-        this.minUnits,
-        row.suggestedSim,
-        mapId
-      );
 
       let heroSim = this.calcLossHero(o.animals);
       row.heroXp = heroSim[1] / 160;
@@ -267,11 +327,20 @@ export class AppComponent {
       row.heroXpDamage =
         row.heroXp / (row.heroDamage == 0 ? 1 : row.heroDamage);
 
+      row.cleanAnimals = this.cleanAnimals(
+        o.animals,
+        this.minUnits,
+        row.suggestedSim,
+        mapId,
+        1
+      );
+
       if (
         row.suggestedSim.number > this.minUnits &&
         row.suggestedSim.number < this.maxUnits &&
         row.value > 0
       ) {
+        this.totalSuggested += row.suggestedSim.number;
         dataSource.push(row);
       }
     });
@@ -282,7 +351,7 @@ export class AppComponent {
   getSuggestedRainbow(animals: Animal[], minRainbow: number): Sim {
     let rainbowNumber = minRainbow;
     let sim: Sim = {
-      link: '',
+      link: "",
       number: rainbowNumber,
       percent: 0,
       bounty: 0,
@@ -318,29 +387,43 @@ export class AppComponent {
     return sim;
   }
 
-  getSuggested(animals: Animal[], minUnits: any, mapId: number): Sim {
+  getSuggested(
+    animals: Animal[],
+    minUnits: any,
+    mapId: number,
+    unitCost: number,
+    maxUnits: number,
+    maxLoss: number,
+    unitId: number[],
+    unitCalculatedPower: number
+  ): Sim {
     let unitsNumber = minUnits;
     let sim: Sim = {
-      link: '',
+      link: "",
       number: unitsNumber,
       percent: 0,
       bounty: 0,
-      losses: unitsNumber * this.unitCost,
+      losses: unitsNumber * unitCost,
       offLosses: 0,
     };
 
-    let maxValue = 0;
+    let maxValue = -1;
 
     let step = 1;
 
-    while (unitsNumber < this.maxUnits) {
-      let lossRatio = this.calcLossRatio(unitsNumber, animals);
+    while (unitsNumber < maxUnits) {
+      let lossRatio = this.calcLossRatio(
+        unitsNumber,
+        animals,
+        unitCalculatedPower,
+        unitCost
+      );
       let losses = lossRatio[1];
       let bounty = lossRatio[2];
 
       let value = (bounty - losses) / unitsNumber;
 
-      if (value > maxValue && lossRatio[0] < this.maxLoss) {
+      if (value > maxValue && lossRatio[0] < maxLoss) {
         maxValue = value;
         sim.number = unitsNumber + 3;
         sim.percent = lossRatio[0];
@@ -355,7 +438,10 @@ export class AppComponent {
       }
     }
 
-    sim.link = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}&troop[t${this.unitId}]=${sim.number}`;
+    const troopParams = unitId
+      .map((id) => `&troop[t${id}]=${sim.number}`)
+      .join("");
+    sim.link = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}${troopParams}`;
     return sim;
   }
 
@@ -363,7 +449,8 @@ export class AppComponent {
     animals: Animal[],
     minUnits: any,
     firstAttack: Sim,
-    mapId: number
+    mapId: number,
+    unitProfile: number
   ): any {
     var links: string[] = [];
 
@@ -371,11 +458,58 @@ export class AppComponent {
     animals = calculateRemains(animals, 1 - firstAttack.offLosses);
 
     while (animals.length > 0) {
-      let nextAttack = this.getSuggested(animals, minUnits, mapId);
+      let nextAttack = this.getSuggestedByProfile(
+        animals,
+        minUnits,
+        mapId,
+        unitProfile
+      );
       links.push(nextAttack.link);
       animals = calculateRemains(animals, 1 - nextAttack.offLosses);
     }
     return links;
+  }
+
+  getSuggestedByProfile(
+    animals: Animal[],
+    minUnits: any,
+    mapId: number,
+    unitProfile: number
+  ): Sim {
+    if (unitProfile == 1) {
+      return this.getSuggested(
+        animals,
+        minUnits,
+        mapId,
+        this.unitCost,
+        this.maxUnits,
+        this.maxLoss,
+        this.unitId,
+        this.unitCalculatedPower
+      );
+    } else if (unitProfile == 2 && this.unitCalculatedPower2 > 0) {
+      return this.getSuggested(
+        animals,
+        minUnits,
+        mapId,
+        this.unitCost2,
+        this.maxUnits2,
+        this.maxLoss2,
+        this.unitId2,
+        this.unitCalculatedPower2
+      );
+    } else {
+      return this.getSuggested(
+        animals,
+        minUnits,
+        mapId,
+        this.unitCost,
+        this.maxUnits,
+        this.maxLoss,
+        this.unitId,
+        this.unitCalculatedPower
+      );
+    }
   }
 
   calcLossRatioRainbow(rainbowNumber: number, animals: Animal[]): number[] {
@@ -451,15 +585,14 @@ export class AppComponent {
     return result;
   }
 
-  calcLossRatio(unitsNumber: number, animals: Animal[]): number[] {
+  calcLossRatio(
+    unitsNumber: number,
+    animals: Animal[],
+    unitCalculatedPower: number,
+    unitCost: number
+  ): number[] {
     // https://blog.travian.com/sl/2023/10/game-secrets-smithy-and-total-strength-of-an-army/
-    if (this.unitCalculatedPower <= 0) {
-      let upgradeBonus: number =
-        (this.basePower + (300 * this.consumption) / 7) *
-        (Math.pow(1.007, this.unitsLvl) - 1);
-      this.unitCalculatedPower = this.basePower + upgradeBonus;
-    }
-    let offPower = unitsNumber * this.unitCalculatedPower;
+    let offPower = unitsNumber * unitCalculatedPower;
     let deffPower = this.animalToDeff(animals) + 10;
 
     let offWins = true;
@@ -475,15 +608,18 @@ export class AppComponent {
 
     let bounty = this.animalToRes(animals, 1 - offLosses);
     let result: number[] = [];
-    result.push((Math.round(unitsNumber * offLosses) * this.unitCost) / bounty);
-    result.push(Math.round(unitsNumber * offLosses) * this.unitCost);
+    result.push(
+      (Math.round(unitsNumber * offLosses) * unitCost) / Math.max(bounty, 1)
+    );
+    result.push(Math.round(unitsNumber * offLosses) * unitCost);
     result.push(bounty);
     result.push(offLosses);
+
     return result;
   }
 
   getLink(position: Position) {
-    return `${this.baseUrl}karte.php?x=` + position.x + '&y=' + position.y;
+    return `${this.baseUrl}karte.php?x=` + position.x + "&y=" + position.y;
   }
 
   calcDistance(position: Position) {
@@ -514,7 +650,7 @@ export class AppComponent {
     let sum = 0;
     animals.forEach((a: Animal) => {
       let deff = this.data.find((v: AnimalData) => v.id == a.id)?.[
-        this.cavalry || forceCavalry ? 'cavDeff' : 'infDeff'
+        this.cavalry || forceCavalry ? "cavDeff" : "infDeff"
       ];
       if (deff) {
         sum += a.count * deff;
@@ -524,13 +660,13 @@ export class AppComponent {
   }
 
   animalToString(animals: Animal[]) {
-    let result = '';
+    let result = "";
     animals.forEach((a: Animal) => {
       result +=
         a.count +
-        ' ' +
+        " " +
         this.data.find((v: AnimalData) => v.id == a.id)?.name +
-        ', ';
+        ", ";
     });
     return result;
   }
@@ -539,12 +675,12 @@ export class AppComponent {
     if (this.data.length) return;
 
     const fileContent = this.httpClient
-      .get('assets/AnimalData.csv', { responseType: 'text' })
+      .get("assets/AnimalData.csv", { responseType: "text" })
       .subscribe((fileContent) => {
         const arr = fileContent.split(/\r?\n/);
 
         arr.forEach((line: string) => {
-          let splitLine = line.split(',');
+          let splitLine = line.split(",");
           this.data.push({
             id: parseInt(splitLine[0]),
             name: splitLine[1],
@@ -574,10 +710,10 @@ export class AppComponent {
     }
 
     for (let i = 31; i < 41; i++) {
-      if (tile.text.includes('u' + i)) {
+      if (tile.text.includes("u" + i)) {
         let value = tile.text
-          .substring(tile.text.indexOf('u' + i) + 3)
-          .match('[0-9]{1,3}');
+          .substring(tile.text.indexOf("u" + i) + 3)
+          .match("[0-9]{1,3}");
         if (value) {
           oasis.animals.push({ id: i, count: parseInt(value[0]) });
         }
@@ -619,12 +755,12 @@ export class AppComponent {
 
   getLastHit(tile: Tile): Date {
     // today, 08:20 format
-    let dateString = tile.text.match('today, [0-9]{2}:[0-9]{2}');
+    let dateString = tile.text.match("today, [0-9]{2}:[0-9]{2}");
     var date = new Date();
 
     if (dateString) {
       // formatDate(dateString[0], 'yyyy-MM-dd:', 'en-UK');
-      var timeSplit = dateString[0].split(':');
+      var timeSplit = dateString[0].split(":");
 
       date = new Date(
         date.getFullYear(),
@@ -636,13 +772,13 @@ export class AppComponent {
     } else {
       // 14.02.24, 14:58 format
       dateString = tile.text.match(
-        '[0-9]{2}.[0-9]{2}.[0-9]{2}, [0-9]{2}:[0-9]{2}'
+        "[0-9]{2}.[0-9]{2}.[0-9]{2}, [0-9]{2}:[0-9]{2}"
       );
       if (!dateString) {
         return date;
       }
-      var dateSplit = dateString[0].split('.');
-      var timeSplit = dateString[0].split(':');
+      var dateSplit = dateString[0].split(".");
+      var timeSplit = dateString[0].split(":");
 
       date = new Date(
         parseInt(dateSplit[2].slice(0, 2)) + 2000,
@@ -657,10 +793,10 @@ export class AppComponent {
   }
 
   getOasisType(tile: Tile): OasisType {
-    let occupied = tile.text.includes('spieler');
+    let occupied = tile.text.includes("spieler");
     if (occupied) return OasisType.Occupied;
 
-    let matchCount = tile.text.split('25%').length - 1;
+    let matchCount = tile.text.split("25%").length - 1;
     switch (matchCount) {
       case 0:
         return OasisType.Single50;
@@ -669,7 +805,7 @@ export class AppComponent {
       case 2:
         return OasisType.Double;
       default:
-        throw new Error('wrong number of regex matches' + tile.text);
+        throw new Error("wrong number of regex matches" + tile.text);
     }
   }
 
@@ -688,8 +824,17 @@ export class AppComponent {
     return true;
   }
 
-  addToTotalAndDelete(x: number, link: string) {
-    this.totalClicked += x;
+  addToTotalAndDelete(
+    unitCount: number,
+    animalBounty: number,
+    resBounty: number,
+    losses: number,
+    link: string
+  ) {
+    this.totalClicked += unitCount;
+    this.totalAnimals += animalBounty;
+    this.totalRaid += resBounty;
+    this.totalLoss += losses;
     if (this.deleteOnClick) {
       this.rawData = this.rawData.filter((a) => a.link != link);
       let sort = this.dataSource.sort;
@@ -715,7 +860,7 @@ export class AppComponent {
   }
 
   shareLink(): string {
-    let result = window.location.host + '?';
+    let result = window.location.host + "?";
     this.parameterList.forEach((param) => {
       result += `${param}=${this[param as keyof AppComponent]}&`;
     });

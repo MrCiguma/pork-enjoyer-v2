@@ -84,14 +84,6 @@
     [value]="this.unitCost"
     (keyup)="this.unitCost = getIntValue($event)"
   />
-  <div>unit ID</div>
-  <input [value]="this.unitId" (keyup)="this.unitId = getIntValue($event)" />
-  <div>raid capacity</div>
-  <input
-    [value]="this.capacity"
-    name="capacity"
-    (keyup)="this.capacity = getIntValue($event)"
-  />
   <div>is cavalry</div>
   <input
     name="cavalry"
@@ -128,7 +120,23 @@
     border: 2px solid #4caf50;
   "
 >
-  You have clicked on links totaling {{ this.totalClicked }} units
+  You have clicked on links totaling {{ this.totalClicked }} units. Total
+  suggested in table is {{ this.totalSuggested }}
+</div>
+
+<div
+  style="
+    position: sticky;
+    top: 0;
+    padding: 5px;
+    width: 800px;
+    background-color: #cad8e8;
+    border: 2px solid #4caf50;
+  "
+>
+  Estimates in thousands: &#10;&#13; Raid:
+  {{ this.totalRaid / 1000 }} &#10;&#13;Animals:
+  {{ this.totalAnimals / 1000 }} &#10;&#13;Losses: {{ this.totalLoss / 1000 }}
 </div>
 
 <table
@@ -149,6 +157,18 @@
       Value
     </th>
     <td mat-cell *matCellDef="let element">{{ element.value }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="value2">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      Value
+    </th>
+    <td mat-cell *matCellDef="let element">{{ element.value2 }}</td>
   </ng-container>
 
   <!-- Value Column -->
@@ -292,10 +312,43 @@
       <a
         [href]="element.suggestedSim.link"
         (click)="
-          this.addToTotalAndDelete(element.suggestedSim.number, element.link)
+          this.addToTotalAndDelete(
+            element.suggestedSim.number,
+            element.suggestedSim.bounty,
+            element.resInOasis,
+            element.suggestedSim.losses,
+            element.link
+          )
         "
         >{{ element.suggestedSim.number }},
         {{ (element.suggestedSim.percent * 100).toFixed(0) }}%</a
+      >
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="suggestedSim2">
+    <th
+      mat-header-cell
+      *matHeaderCellDef
+      mat-sort-header
+      sortActionDescription="Sort by number"
+    >
+      suggested units2 number
+    </th>
+    <td mat-cell *matCellDef="let element">
+      <a
+        [href]="element.suggestedSim2.link"
+        (click)="
+          this.addToTotalAndDelete(
+            element.suggestedSim2.number,
+            element.suggestedSim2.bounty,
+            element.resInOasis,
+            element.suggestedSim2.losses,
+            element.link
+          )
+        "
+        >{{ element.suggestedSim2.number }},
+        {{ (element.suggestedSim2.percent * 100).toFixed(0) }}%</a
       >
     </td>
   </ng-container>
