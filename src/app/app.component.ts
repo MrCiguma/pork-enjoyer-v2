@@ -75,6 +75,7 @@ export class AppComponent {
   valueTime: boolean = true;
   valueRaid: boolean = true;
   tabName: string = "PorkEnjoyer";
+  defaultEmpty: number = 0;
 
   parameterList: String[] = [
     "x",
@@ -106,6 +107,7 @@ export class AppComponent {
     "valueTime",
     "valueRaid",
     "tabName",
+    "defaultEmpty",
   ];
 
   announceSortChange($event: Sort) {
@@ -312,6 +314,10 @@ export class AppComponent {
       row.valueAnimals /= row.distance;
       row.valueAnimals = Math.round(row.valueAnimals * 1000);
 
+      if (row.valueAnimals == 0 && row.value > 0 && this.defaultEmpty != 0) {
+        row.suggestedSim.number = this.defaultEmpty;
+      }
+
       const troopParams = this.unitId
         .map((id) => `&troop[t${id}]=${row.unitsNeeded}`)
         .join("");
@@ -327,8 +333,10 @@ export class AppComponent {
       row.heroXpDamage =
         row.heroXp / (row.heroDamage == 0 ? 1 : row.heroDamage);
 
+      let tempAnimals: Animal[] = o.animals.map((a) => ({ ...a }));
+
       row.cleanAnimals = this.cleanAnimals(
-        o.animals,
+        tempAnimals,
         this.minUnits,
         row.suggestedSim,
         mapId,
@@ -336,9 +344,12 @@ export class AppComponent {
       );
 
       if (
-        row.suggestedSim.number > this.minUnits &&
-        row.suggestedSim.number < this.maxUnits &&
-        row.value > 0
+        (row.suggestedSim.number > this.minUnits &&
+          row.suggestedSim.number < this.maxUnits &&
+          row.value > 0) ||
+        (row.suggestedSim.number == this.defaultEmpty &&
+          this.defaultEmpty > 0 &&
+          row.value > 0)
       ) {
         this.totalSuggested += row.suggestedSim.number;
         dataSource.push(row);
