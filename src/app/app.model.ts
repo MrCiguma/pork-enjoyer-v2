@@ -21,9 +21,17 @@ export interface Position {
   y: number;
 }
 
+export enum Resource {
+  Wood,
+  Clay,
+  Iron,
+  Crop,
+}
+
 export interface Oasis {
   position: Position;
   type: OasisType;
+  resType: Resource;
   lastHit: Date;
   currentRes: number;
   animals: Animal[];

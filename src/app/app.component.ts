@@ -9,6 +9,7 @@ import {
   AnimalData,
   OasisType,
   Sim,
+  Resource,
 } from "./app.model";
 import { HttpClient, HttpClientModule, HttpParams } from "@angular/common/http";
 import "@angular/compiler";
@@ -82,6 +83,7 @@ export class AppComponent {
   lossReduceCost: number = 0;
   lossReduceCavalry: boolean = true;
   handledOases: Set<string> = new Set();
+  demoteSpawning: boolean = false;
   parameterList: String[] = [
     "x",
     "y",
@@ -118,6 +120,7 @@ export class AppComponent {
     "valueRaid",
     "tabName",
     "defaultEmpty",
+    "demoteSpawning",
   ];
 
   announceSortChange($event: Sort) {
@@ -331,7 +334,6 @@ export class AppComponent {
       if (this.lossReduceRatio > 0 && row.value2 > row.value) {
         row.suggestedSim = row.suggestedSim2;
       }
-
       row.valueAnimals =
         (row.suggestedSim.bounty - row.suggestedSim.losses) /
         row.suggestedSim.number;
@@ -381,11 +383,83 @@ export class AppComponent {
           row.value > 0)
       ) {
         this.totalSuggested += row.suggestedSim.number;
+
+        if (this.demoteSpawning && this.isSpawning(o)) {
+          if (row.value > 0) row.value *= -1;
+          if (row.value2 > 0) row.value2 *= -1;
+        }
+
         dataSource.push(row);
       }
     });
 
     return dataSource;
+  }
+
+  private isSpawning(o: Oasis): boolean {
+    if (!o?.animals || o.animals.length === 0) return false;
+
+    // Resource → last-spawner threshold (inclusive)
+    const lastSpawnerThreshold: Record<Resource, number> = {
+      [Resource.Wood]: 37,
+      [Resource.Clay]: 35,
+      [Resource.Iron]: 34,
+      [Resource.Crop]: 39,
+    };
+
+    const threshold = lastSpawnerThreshold[o.resType];
+
+    // Only animals that exist
+    const present = o.animals.filter((a) => a.count > 0);
+
+    const totalAnimals = present.reduce((sum, a) => sum + a.count, 0);
+    const lastSpawners = present.filter((a) => a.id >= threshold);
+
+    // Rule 1: no last spawner AND ≥ 6 total animals → spawning
+    if (lastSpawners.length === 0 && totalAnimals >= 6) {
+      return true;
+    }
+
+    // Rule 2: ≥ 2 last spawners → not spawning
+    if (lastSpawners.length >= 2) {
+      return false;
+    }
+
+    // Rule 3: exactly one last spawner → ratio check
+    if (lastSpawners.length === 1) {
+      const ls = lastSpawners[0];
+
+      // candidates strictly below last spawner id, highest id first
+      const prevCandidates = present
+        .filter((a) => a.id < ls.id)
+        .sort((a, b) => b.id - a.id);
+
+      // pick immediate previous; if its count < 4, pick the next previous
+      let prev = prevCandidates[0] ?? null;
+      if (prev && prev.count < 4) {
+        prev = prevCandidates[1] ?? null;
+      }
+
+      if (!prev) return false; // no valid comparator → not spawning
+
+      // ratio thresholds by last spawner id
+      const ratioThresholdById: Record<number, number> = {
+        37: 0.4, // wood
+        35: 0.33, // clay
+        34: 0.66, // iron
+        39: 0.5, // crop (updated)
+      };
+
+      const limit = ratioThresholdById[ls.id];
+      if (typeof limit !== "number" || prev.count <= 0) {
+        return false;
+      }
+
+      const ratio = (ls.count + 1) / prev.count;
+      return ratio < limit;
+    }
+
+    return false;
   }
 
   getSuggestedRainbow(animals: Animal[], minRainbow: number): Sim {
@@ -918,6 +992,7 @@ export class AppComponent {
       position: tile.position,
       animals: [],
       type: this.getOasisType(tile),
+      resType: this.getResType(tile),
       lastHit: this.getLastHit(tile),
       currentRes: 0,
     };
@@ -939,6 +1014,47 @@ export class AppComponent {
     }
 
     return oasis;
+  }
+
+  private getResType(tile: Tile): Resource {
+    if (!tile?.text) throw "tile text doesnt exist";
+
+    // Find {a:r1}, {a:r2}, {a:r3}, {a:r4}
+    const regex = /\{a:r([1-4])\}/g;
+    const found: number[] = [];
+    let m: RegExpExecArray | null;
+
+    while ((m = regex.exec(tile.text)) !== null) {
+      found.push(parseInt(m[1], 10));
+    }
+    if (found.length === 0) throw "oasis not found";
+
+    // Dedupe
+    const unique = Array.from(new Set(found));
+
+    // If more than one, it's guaranteed to be [crop, X] per your rule → return X
+    if (unique.length > 1) {
+      const nonCrop = unique.find((code) => code !== 4);
+      return nonCrop ? this.mapResourceCode(nonCrop) : Resource.Crop; // fallback safety
+    }
+
+    // Single type
+    return this.mapResourceCode(unique[0]);
+  }
+
+  private mapResourceCode(code: number): Resource {
+    switch (code) {
+      case 1:
+        return Resource.Wood;
+      case 2:
+        return Resource.Clay;
+      case 3:
+        return Resource.Iron;
+      case 4:
+        return Resource.Crop;
+      default:
+        return Resource.Crop;
+    }
   }
 
   calculateCurrentRes(oasis: Oasis): number {
