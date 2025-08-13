@@ -76,7 +76,12 @@ export class AppComponent {
   valueRaid: boolean = true;
   tabName: string = "PorkEnjoyer";
   defaultEmpty: number = 0;
-
+  lossReduceId: number = 0;
+  lossReduceRatio: number = 0;
+  lossReducePower: number = 0;
+  lossReduceCost: number = 0;
+  lossReduceCavalry: boolean = true;
+  handledOases: Set<string> = new Set();
   parameterList: String[] = [
     "x",
     "y",
@@ -97,6 +102,11 @@ export class AppComponent {
     "capacity2",
     "maxLoss",
     "maxLoss2",
+    "lossReduceId",
+    "lossReduceRatio",
+    "lossReducePower",
+    "lossReduceCost",
+    "lossReduceCavalry",
     "show",
     "gameSpeed",
     "showHero",
@@ -247,6 +257,12 @@ export class AppComponent {
     }[] = [];
 
     this.oases.forEach((o: Oasis) => {
+      const key = `${o.position.x}:${o.position.y}`;
+      if (this.handledOases.has(key)) {
+        return;
+      }
+      this.handledOases.add(key);
+
       if (Math.round(o.currentRes + this.animalToRes(o.animals, 1)) < 1) return;
       let mapId = (200 - o.position.y) * 401 + (201 + o.position.x);
       let row = {
@@ -266,13 +282,17 @@ export class AppComponent {
           o.animals,
           Math.round(o.currentRes / this.capacity),
           mapId,
-          1
+          1,
+          o.currentRes
         ),
         suggestedSim2: this.getSuggestedByProfile(
           o.animals,
-          Math.round(o.currentRes / this.capacity2),
+          this.lossReducePower > 0
+            ? Math.round(o.currentRes / this.capacity)
+            : Math.round(o.currentRes / this.capacity),
           mapId,
-          2
+          2,
+          o.currentRes
         ),
         suggestedRainbow: this.getSuggestedRainbow(
           o.animals,
@@ -308,6 +328,10 @@ export class AppComponent {
       if (!row.value) row.value = 0;
       if (!row.value2) row.value2 = 0;
 
+      if (this.lossReduceRatio > 0 && row.value2 > row.value) {
+        row.suggestedSim = row.suggestedSim2;
+      }
+
       row.valueAnimals =
         (row.suggestedSim.bounty - row.suggestedSim.losses) /
         row.suggestedSim.number;
@@ -316,6 +340,10 @@ export class AppComponent {
 
       if (row.valueAnimals == 0 && row.value > 0 && this.defaultEmpty != 0) {
         row.suggestedSim.number = this.defaultEmpty;
+        const troopParams = this.unitId
+          .map((id) => `&troop[t${id}]=${this.defaultEmpty}`)
+          .join("");
+        row.suggestedSim.link = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}${troopParams}`;
       }
 
       const troopParams = this.unitId
@@ -340,7 +368,8 @@ export class AppComponent {
         this.minUnits,
         row.suggestedSim,
         mapId,
-        1
+        1,
+        row.resInOasis
       );
 
       if (
@@ -398,6 +427,77 @@ export class AppComponent {
     return sim;
   }
 
+  getSuggestedMixed(
+    animals: Animal[],
+    minUnits: any,
+    mapId: number,
+    unitCost: number,
+    maxUnits: number,
+    maxLoss: number,
+    unitId: number[],
+    unitCalculatedPower: number,
+    cavalry: number,
+    lossReduceCost: number,
+    lossReduceId: number,
+    lossReducePower: number,
+    lossReduceRatio: number,
+    lossReduceCavalry: number,
+    resInOasis: number
+  ): Sim {
+    let unitsNumber = minUnits;
+    let sim: Sim = {
+      link: "",
+      number: unitsNumber,
+      percent: 0,
+      bounty: 0,
+      losses: unitsNumber * unitCost,
+      offLosses: 0,
+    };
+
+    let maxValue = -1;
+
+    let step = 1;
+
+    while (unitsNumber < maxUnits) {
+      let lossRatio = this.calcLossRatioMixed(
+        unitsNumber,
+        Math.round(unitsNumber * lossReduceRatio),
+        animals,
+        unitCalculatedPower,
+        lossReducePower,
+        unitCost,
+        lossReduceCost,
+        cavalry,
+        lossReduceCavalry,
+        resInOasis
+      );
+      let losses = lossRatio[1];
+      let bounty = lossRatio[2];
+
+      let value = (bounty - losses) / unitsNumber;
+
+      if (value > maxValue && lossRatio[0] < maxLoss) {
+        maxValue = value;
+        sim.number = unitsNumber + 3;
+        sim.percent = lossRatio[0];
+        sim.bounty = bounty;
+        sim.losses = losses;
+        sim.offLosses = lossRatio[3];
+      }
+
+      unitsNumber += step;
+      if (unitsNumber % 100 < step) {
+        step += 2;
+      }
+    }
+
+    const troopParams = `&troop[t${unitId}]=${
+      sim.number
+    }&troop[t${lossReduceId}]=${Math.round(sim.number * lossReduceRatio)}`;
+    sim.link = `${this.baseUrl}build.php?gid=16&tt=2&eventType=4&targetMapId=${mapId}${troopParams}`;
+    return sim;
+  }
+
   getSuggested(
     animals: Animal[],
     minUnits: any,
@@ -406,7 +506,9 @@ export class AppComponent {
     maxUnits: number,
     maxLoss: number,
     unitId: number[],
-    unitCalculatedPower: number
+    unitCalculatedPower: number,
+    cavalry: number,
+    resInOasis: number
   ): Sim {
     let unitsNumber = minUnits;
     let sim: Sim = {
@@ -427,7 +529,9 @@ export class AppComponent {
         unitsNumber,
         animals,
         unitCalculatedPower,
-        unitCost
+        unitCost,
+        cavalry,
+        resInOasis
       );
       let losses = lossRatio[1];
       let bounty = lossRatio[2];
@@ -461,7 +565,8 @@ export class AppComponent {
     minUnits: any,
     firstAttack: Sim,
     mapId: number,
-    unitProfile: number
+    unitProfile: number,
+    resInOasis: number
   ): any {
     var links: string[] = [];
 
@@ -473,7 +578,8 @@ export class AppComponent {
         animals,
         minUnits,
         mapId,
-        unitProfile
+        unitProfile,
+        resInOasis
       );
       links.push(nextAttack.link);
       animals = calculateRemains(animals, 1 - nextAttack.offLosses);
@@ -485,7 +591,8 @@ export class AppComponent {
     animals: Animal[],
     minUnits: any,
     mapId: number,
-    unitProfile: number
+    unitProfile: number,
+    resInOasis: number
   ): Sim {
     if (unitProfile == 1) {
       return this.getSuggested(
@@ -496,7 +603,27 @@ export class AppComponent {
         this.maxUnits,
         this.maxLoss,
         this.unitId,
-        this.unitCalculatedPower
+        this.unitCalculatedPower,
+        this.cavalry ? 1 : 0,
+        resInOasis
+      );
+    } else if (this.lossReducePower > 0) {
+      return this.getSuggestedMixed(
+        animals,
+        minUnits,
+        mapId,
+        this.unitCost,
+        this.maxUnits,
+        this.maxLoss,
+        this.unitId,
+        this.unitCalculatedPower,
+        this.cavalry ? 1 : 0,
+        this.lossReduceCost,
+        this.lossReduceId,
+        this.lossReducePower,
+        this.lossReduceRatio,
+        this.lossReduceCavalry ? 1 : 0,
+        resInOasis
       );
     } else if (unitProfile == 2 && this.unitCalculatedPower2 > 0) {
       return this.getSuggested(
@@ -507,7 +634,9 @@ export class AppComponent {
         this.maxUnits2,
         this.maxLoss2,
         this.unitId2,
-        this.unitCalculatedPower2
+        this.unitCalculatedPower2,
+        this.cavalry2 ? 1 : 0,
+        resInOasis
       );
     } else {
       return this.getSuggested(
@@ -518,7 +647,9 @@ export class AppComponent {
         this.maxUnits,
         this.maxLoss,
         this.unitId,
-        this.unitCalculatedPower
+        this.unitCalculatedPower,
+        this.cavalry ? 1 : 0,
+        resInOasis
       );
     }
   }
@@ -559,7 +690,7 @@ export class AppComponent {
 
     offPower *= rainbowNumber * 1.08;
 
-    let deffPower = this.animalToDeff(animals) + 10;
+    let deffPower = this.animalToDeff(animals, 1) + 10;
 
     if (offPower < deffPower) return [5, 5, 5];
 
@@ -577,7 +708,7 @@ export class AppComponent {
 
   calcLossHero(animals: Animal[]): number[] {
     let offPower = this.fightingStrength;
-    let deffPower = this.animalToDeff(animals, true) + 10;
+    let deffPower = this.animalToDeff(animals, 1) + 10;
     let offWins = true;
     let ratioX = Math.pow(deffPower / offPower, 1.5);
 
@@ -596,28 +727,101 @@ export class AppComponent {
     return result;
   }
 
-  calcLossRatio(
-    unitsNumber: number,
+  calcLossRatioMixed(
+    unitsNumber1: number,
+    unitsNumber2: number,
     animals: Animal[],
-    unitCalculatedPower: number,
-    unitCost: number
+    unitCalculatedPower1: number,
+    unitCalculatedPower2: number,
+    unitCost1: number,
+    unitCost2: number,
+    cavalry1: number,
+    cavalry2: number,
+    resInOasis: number
   ): number[] {
     // https://blog.travian.com/sl/2023/10/game-secrets-smithy-and-total-strength-of-an-army/
-    let offPower = unitsNumber * unitCalculatedPower;
-    let deffPower = this.animalToDeff(animals) + 10;
+    let offPower =
+      unitsNumber1 * unitCalculatedPower1 + unitsNumber2 * unitCalculatedPower2;
+
+    let cavOff =
+      unitsNumber1 * unitCalculatedPower1 * cavalry1 +
+      unitsNumber2 * unitCalculatedPower2 * cavalry2;
+
+    let deffPower = this.animalToDeff(animals, cavOff / offPower) + 10;
 
     let offWins = true;
-    let ratioX = Math.pow(deffPower / offPower, 1.5);
+    let nUnits = unitsNumber1 + unitsNumber2;
+    animals.forEach((a) => (nUnits += a.count));
+    let massArmyExponent = 2 * (1.8592 - Math.pow(nUnits, 0.015));
+    massArmyExponent = Math.min(massArmyExponent, 1.5);
+
+    let ratioX = Math.pow(deffPower / offPower, massArmyExponent);
     if (offPower < deffPower) {
       offWins = false;
-      ratioX = Math.pow(offPower / deffPower, 1.5);
+      ratioX = Math.pow(offPower / deffPower, massArmyExponent);
     }
 
     // https://blog.travian.com/2023/09/game-secrets-combat-system-formulas-written-by-kirilloid/
     let losses = ratioX / (1 + ratioX);
     let offLosses = offWins ? losses : 1 - losses;
 
-    let bounty = this.animalToRes(animals, 1 - offLosses);
+    let bounty =
+      this.animalToRes(animals, 1 - offLosses) +
+      (this.valueRaid ? 1 : 0) * resInOasis;
+
+    if (unitsNumber1 == 3688) {
+      console.log(bounty);
+      console.log(unitsNumber1);
+    }
+    let result: number[] = [];
+    result.push(
+      (Math.round(unitsNumber1 * offLosses) * unitCost1 +
+        Math.round(unitsNumber2 * offLosses) * unitCost2) /
+        Math.max(bounty, 1)
+    );
+    result.push(
+      Math.round(unitsNumber1 * offLosses) * unitCost1 +
+        Math.round(unitsNumber2 * offLosses) * unitCost2
+    );
+    result.push(bounty);
+    result.push(offLosses);
+
+    return result;
+  }
+
+  calcLossRatio(
+    unitsNumber: number,
+    animals: Animal[],
+    unitCalculatedPower: number,
+    unitCost: number,
+    cavalry: number,
+    resInOasis: number
+  ): number[] {
+    // https://blog.travian.com/sl/2023/10/game-secrets-smithy-and-total-strength-of-an-army/
+    let offPower = unitsNumber * unitCalculatedPower;
+
+    let deffPower = this.animalToDeff(animals, cavalry) + 10;
+
+    let offWins = true;
+    let nUnits = unitsNumber;
+    animals.forEach((a) => (nUnits += a.count));
+    let massArmyExponent = 2 * (1.8592 - Math.pow(nUnits, 0.015));
+    massArmyExponent = Math.min(massArmyExponent, 1.5);
+
+    let ratioX = Math.pow(deffPower / offPower, massArmyExponent);
+    if (offPower < deffPower) {
+      offWins = false;
+      ratioX = Math.pow(offPower / deffPower, massArmyExponent);
+    }
+
+    // https://blog.travian.com/2023/09/game-secrets-combat-system-formulas-written-by-kirilloid/
+    let losses = ratioX / (1 + ratioX);
+    let offLosses = offWins ? losses : 1 - losses;
+
+    let bounty =
+      this.animalToRes(animals, 1 - offLosses) +
+      (this.valueRaid ? 1 : 0) * resInOasis;
+
     let result: number[] = [];
     result.push(
       (Math.round(unitsNumber * offLosses) * unitCost) / Math.max(bounty, 1)
@@ -657,14 +861,17 @@ export class AppComponent {
     return sum;
   }
 
-  animalToDeff(animals: Animal[], forceCavalry?: boolean) {
+  animalToDeff(animals: Animal[], cavalry: number) {
     let sum = 0;
     animals.forEach((a: Animal) => {
-      let deff = this.data.find((v: AnimalData) => v.id == a.id)?.[
-        this.cavalry || forceCavalry ? "cavDeff" : "infDeff"
+      let cavDeff = this.data.find((v: AnimalData) => v.id == a.id)?.[
+        "cavDeff"
       ];
-      if (deff) {
-        sum += a.count * deff;
+      let infDeff = this.data.find((v: AnimalData) => v.id == a.id)?.[
+        "infDeff"
+      ];
+      if (cavDeff && infDeff) {
+        sum += a.count * cavDeff * cavalry + a.count * infDeff * (1 - cavalry);
       }
     });
     return sum;
@@ -773,13 +980,25 @@ export class AppComponent {
       // formatDate(dateString[0], 'yyyy-MM-dd:', 'en-UK');
       var timeSplit = dateString[0].split(":");
 
-      date = new Date(
+      let date2 = new Date(
         date.getFullYear(),
         date.getMonth(),
         date.getDate(),
         parseInt(timeSplit[0].slice(-2)),
         parseInt(timeSplit[1])
       );
+
+      if (date2 > new Date()) {
+        date = new Date(
+          date.getFullYear(),
+          date.getMonth(),
+          date.getDate() - 1,
+          parseInt(timeSplit[0].slice(-2)),
+          parseInt(timeSplit[1])
+        );
+      } else {
+        date = date2;
+      }
     } else {
       // 14.02.24, 14:58 format
       dateString = tile.text.match(
