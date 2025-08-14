@@ -335,7 +335,7 @@ export class AppComponent {
         row.suggestedSim = row.suggestedSim2;
       }
       row.valueAnimals =
-        (row.suggestedSim.bounty - row.suggestedSim.losses) /
+        (row.suggestedSim.bounty - o.currentRes - row.suggestedSim.losses) /
         row.suggestedSim.number;
       row.valueAnimals /= row.distance;
       row.valueAnimals = Math.round(row.valueAnimals * 1000);
