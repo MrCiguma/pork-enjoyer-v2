@@ -283,7 +283,7 @@ export class AppComponent {
         heroLink: "",
         suggestedSim: this.getSuggestedByProfile(
           o.animals,
-          Math.round(o.currentRes / this.capacity),
+          Math.max(Math.round(o.currentRes / this.capacity), this.minUnits + 1),
           mapId,
           1,
           o.currentRes
@@ -291,8 +291,14 @@ export class AppComponent {
         suggestedSim2: this.getSuggestedByProfile(
           o.animals,
           this.lossReducePower > 0
-            ? Math.round(o.currentRes / this.capacity)
-            : Math.round(o.currentRes / this.capacity),
+            ? Math.max(
+                Math.round(o.currentRes / this.capacity),
+                this.minUnits + 1
+              )
+            : Math.max(
+                Math.round(o.currentRes / this.capacity2),
+                this.minUnits2 + 1
+              ),
           mapId,
           2,
           o.currentRes
