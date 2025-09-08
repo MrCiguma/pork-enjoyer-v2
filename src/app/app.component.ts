@@ -84,6 +84,10 @@ export class AppComponent {
   lossReduceCavalry: boolean = true;
   handledOases: Set<string> = new Set();
   demoteSpawning: boolean = false;
+  maxTime: number = 0;
+  ts: number = 0;
+  unitSpeed: number = 7;
+  minLosses: number = 0;
   parameterList: String[] = [
     "x",
     "y",
@@ -121,6 +125,10 @@ export class AppComponent {
     "tabName",
     "defaultEmpty",
     "demoteSpawning",
+    "maxTime",
+    "ts",
+    "unitSpeed",
+    "minLosses",
   ];
 
   announceSortChange($event: Sort) {
@@ -219,6 +227,14 @@ export class AppComponent {
   }
 
   calc(map: string) {
+    // NEW: detect HAR text and fan out to calcFromHar
+    if (isLikelyHarText(map)) {
+      const n = calcFromHar.call(this, map);
+      console.log(`Processed ${n} responses from HAR`);
+      return; // IMPORTANT: don't run the normal single-response logic
+    }
+
+    // --- your existing code remains unchanged below ---
     console.log("start" + new Date().toISOString());
     this.printCurrentParams();
     let obj: Map = JSON.parse(map);
@@ -265,6 +281,13 @@ export class AppComponent {
         return;
       }
       this.handledOases.add(key);
+
+      if (
+        this.distanceToTime(this.calcDistance(o.position)) > this.maxTime &&
+        this.maxTime > 0
+      ) {
+        return;
+      }
 
       if (Math.round(o.currentRes + this.animalToRes(o.animals, 1)) < 1) return;
       let mapId = (200 - o.position.y) * 401 + (201 + o.position.x);
@@ -327,8 +350,13 @@ export class AppComponent {
         row.suggestedSim2.number;
 
       if (this.valueTime) {
-        row.value /= row.distance;
-        row.value2 /= row.distance;
+        let time = this.distanceToTime(row.distance);
+        row.value /= time;
+        row.value2 /= time;
+      }
+
+      if (this.minLosses > 0 && this.minLosses > row.suggestedSim.losses) {
+        return;
       }
 
       row.value = Math.round(row.value * 1000);
@@ -401,6 +429,16 @@ export class AppComponent {
 
     return dataSource;
   }
+  distanceToTime(distance: number): number {
+    if (distance < 20) {
+      return distance / this.unitSpeed;
+    }
+
+    return (
+      20 / this.unitSpeed +
+      (distance - 20) / (this.unitSpeed * (1 + this.ts * 0.2))
+    );
+  }
 
   private isSpawning(o: Oasis): boolean {
     if (!o?.animals || o.animals.length === 0) return false;
@@ -421,8 +459,13 @@ export class AppComponent {
     const totalAnimals = present.reduce((sum, a) => sum + a.count, 0);
     const lastSpawners = present.filter((a) => a.id >= threshold);
 
-    // Rule 1: no last spawner AND ≥ 6 total animals → spawning
-    if (lastSpawners.length === 0 && totalAnimals >= 6) {
+    // Rule 1: no last spawner AND only one animal type → spawning
+    if (lastSpawners.length === 0 && present.length === 1) {
+      return true;
+    }
+
+    // Rule 1.5: no last spawner AND more than 5 total animals → spawning
+    if (lastSpawners.length === 0 && totalAnimals > 5) {
       return true;
     }
 
@@ -849,10 +892,6 @@ export class AppComponent {
       this.animalToRes(animals, 1 - offLosses) +
       (this.valueRaid ? 1 : 0) * resInOasis;
 
-    if (unitsNumber1 == 3688) {
-      console.log(bounty);
-      console.log(unitsNumber1);
-    }
     let result: number[] = [];
     result.push(
       (Math.round(unitsNumber1 * offLosses) * unitCost1 +
@@ -1228,4 +1267,112 @@ function calculateRemains(animals: Animal[], losses: number): Animal[] {
     }
   });
   return remaining;
+}
+
+// --- Minimal HAR typings ---
+type Har = { log?: { entries?: HarEntry[] } };
+type HarEntry = {
+  request?: { url?: string; method?: string };
+  response?: {
+    status?: number;
+    content?: {
+      mimeType?: string;
+      text?: string;
+      encoding?: string;
+      size?: number;
+    };
+  };
+};
+
+type HarContent = {
+  mimeType?: string;
+  text?: string;
+  encoding?: string;
+  size?: number;
+};
+
+// --- Tiny HAR detector (very permissive) ---
+function isLikelyHarText(text: string): boolean {
+  try {
+    const obj = JSON.parse(text);
+    return !!(obj && obj.log && Array.isArray(obj.log.entries));
+  } catch {
+    return false;
+  }
+}
+
+// --- Decode response content from HAR ---
+function decodeHarContent(content?: HarContent): string | null {
+  if (!content || !content.text) return null;
+
+  if (content.encoding && content.encoding.toLowerCase() === "base64") {
+    try {
+      const bin = atob(content.text);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    } catch {
+      try {
+        return atob(content.text);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return content.text;
+}
+
+// --- Feed all matching HAR responses into your existing calc(map) ---
+function calcFromHar(this: any, harJsonText: string): number {
+  let har: Har;
+  try {
+    har = JSON.parse(harJsonText);
+  } catch {
+    console.error("Invalid HAR JSON passed to calcFromHar");
+    return 0;
+  }
+  const entries = har?.log?.entries || [];
+  if (!entries.length) return 0;
+
+  let processed = 0;
+
+  // Build the target URL using your existing baseUrl (no hardcoding)
+  // We only match exactly the /api/v1/map/position endpoint on that base.
+  let targetOrigin = this.baseUrl?.replace(/\/+$/, "") || "";
+  let targetPath = "/api/v1/map/position";
+
+  for (const e of entries) {
+    const reqUrl = e.request?.url || "";
+    let matches = false;
+    try {
+      const u = new URL(reqUrl);
+      // match same origin as this.baseUrl and exact path
+      matches = reqUrl.startsWith(targetOrigin) && u.pathname === targetPath;
+    } catch {
+      // If URL constructor fails (weird relative URL in HAR), fallback to substring check
+      matches = reqUrl.includes(targetPath);
+    }
+
+    if (!matches) continue;
+
+    // (Optional) only 2xx responses
+    const status = e.response?.status ?? 0;
+    if (status < 200 || status >= 300) continue;
+
+    const bodyText = decodeHarContent(e.response?.content);
+    if (!bodyText) continue;
+
+    // Must be valid JSON; your calc will JSON.parse(map) so ensure it won’t crash.
+    try {
+      JSON.parse(bodyText);
+    } catch {
+      continue;
+    }
+
+    // Call your existing calc(map) for each response body
+    this.calc(bodyText);
+    processed++;
+  }
+
+  return processed;
 }
